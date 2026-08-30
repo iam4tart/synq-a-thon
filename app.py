@@ -453,17 +453,13 @@ def get_dashboard():
             fetchDashboard(); 
         }
         async function approveSingle(id) { 
-            await fetch('/api/approve-comms?ticket_id='+id, {method:'POST'}); 
-            showToast(Approved email for ticket .);
+            await fetch('/api/approve-comms?ticket_id=' + encodeURIComponent(id), {method:'POST'}); 
+            showToast(`Approved email for ticket ${id}.`);
             fetchDashboard(); 
         }
         async function unapproveSingle(id) { 
-            await fetch('/api/unapprove-comms?ticket_id='+id, {method:'POST'}); 
-            showToast(Undo: Recalled email for ticket .);
-            fetchDashboard(); 
-        }); 
-            const data = await res.json();
-            showToast(`Approved operation for ticket ${id}.`);
+            await fetch('/api/unapprove-comms?ticket_id=' + encodeURIComponent(id), {method:'POST'}); 
+            showToast(`Undo: Recalled email for ticket ${id}.`);
             fetchDashboard(); 
         }
         async function uploadFile(inp) {
@@ -586,13 +582,12 @@ def approve_comms(ticket_id: Optional[str] = None):
     return {"status": "SUCCESS", "approved_count": approved}
 
 
-@app.post("/api/query")
-@graceful_api("Knowledge Query")
 @app.post("/api/unapprove-comms")
 @graceful_api("Unapprove Comms")
 def unapprove_comms(ticket_id: str):
     success = gate.unapprove(ticket_id=ticket_id)
     return {"status": "SUCCESS", "unapproved": success}
+
 
 @app.post("/api/query")
 @graceful_api("Knowledge Query")
@@ -621,12 +616,12 @@ def download_report():
 @app.post("/api/upload-queue")
 @graceful_api("Upload Queue")
 async def upload_queue(file: UploadFile = File(...)):
-    temp_path = os.path.join(current_dir, f"temp_{file.filename}")
-    with open(temp_path, "wb") as f:
-        f.write(await file.read())
-    stats = pipeline.process_queue_file(temp_path, is_append=True)
-    if os.path.exists(temp_path):
-        os.remove(temp_path)
+    ext = os.path.splitext(file.filename)[1] or ".json"
+    target_path = os.path.join(BASE_DIR, f"tickets{ext}")
+    content = await file.read()
+    with open(target_path, "wb") as f:
+        f.write(content)
+    stats = pipeline.process_queue_file(target_path, is_append=True)
     return {"status": "SUCCESS", "stats": stats}
 
 
