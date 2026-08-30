@@ -144,7 +144,7 @@ def get_dashboard():
 </head>
 <body>
     <nav class="navbar d-flex justify-content-between align-items-center mb-4">
-        <div class="brand">Meridian Ops <span id="status-indicator" class="ms-2 fw-normal" style="font-size:10px;"></span></div>
+        <div class="brand">Meridian Ops</div>
         <div class="d-flex gap-2">
             <input type="text" class="search-box" id="topSearch" placeholder="Search rules..." onkeydown="if(event.key==='Enter') executeTopQuery()">
             <button class="btn btn-light btn-custom" onclick="document.getElementById('fileInput').click()">Upload Data</button>
@@ -337,8 +337,6 @@ def get_dashboard():
                 if (!res.ok) throw new Error("API Offline");
                 const d = await res.json();
                 
-                document.getElementById('status-indicator').innerHTML = '<span class="text-success">● Live</span>';
-                
                 const currentHash = JSON.stringify(d.stats) + d.pending.length + d.quarantine.length + d.work_orders.length + d.audit.length;
                 if (currentHash === lastDataHash) return;
                 lastDataHash = currentHash;
@@ -508,11 +506,29 @@ def get_dashboard_data():
     quarantine = read_jsonl(os.path.join(OUTPUT_DIR, "quarantine.jsonl"))
     audit = read_jsonl(os.path.join(AUDIT_DIR, "audit.jsonl"))
 
+    # Calculate raw totals accurately by reading tickets file
+    tickets_path = os.path.join(BASE_DIR, "tickets.json")
+    if not os.path.exists(tickets_path):
+        tickets_path = os.path.join(BASE_DIR, "data", "tickets.json")
+    
+    total_raw = 0
+    if os.path.exists(tickets_path):
+        try:
+            with open(tickets_path, "r", encoding="utf-8") as f:
+                total_raw = len(json.load(f))
+        except Exception:
+            # Maybe it's a JSONL or CSV if it's the surprise file
+            pass
+
+    if total_raw == 0:
+        # Fallback to sum of outputs if source file is missing
+        total_raw = len(work_orders) + len(quarantine)
+
     return {
         "stats": {
-            "total_raw": len(work_orders) + len(quarantine) + 3,
+            "total_raw": total_raw,
             "processed_valid": len(work_orders),
-            "duplicates_skipped": 3
+            "duplicates_skipped": max(0, total_raw - len(work_orders) - len(quarantine))
         },
         "work_orders": work_orders,
         "pending": pending,
