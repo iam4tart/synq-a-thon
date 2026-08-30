@@ -23,6 +23,20 @@ class BreakdownPipeline:
         self.rules_engine = RulesEngine(self.store)
         self.processed_ticket_ids: Set[str] = set()
 
+    def _load_processed_state(self):
+        for fname in ("work_orders.jsonl", "comms_pending.jsonl", "comms_sent.jsonl", "quarantine.jsonl"):
+            path = os.path.join(self.output_dir, fname)
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            try:
+                                rec = json.loads(line)
+                                if "ticket_id" in rec:
+                                    self.processed_ticket_ids.add(rec["ticket_id"])
+                            except:
+                                pass
+
     def process_queue_file(self, queue_file_path: str, is_append: bool = False) -> Dict[str, int]:
         raw_records = self._load_queue_records(queue_file_path)
         stats = {
@@ -31,9 +45,10 @@ class BreakdownPipeline:
             "quarantined": 0,
             "duplicates_skipped": 0
         }
-        if not is_append:
-            self._init_output_files()
-            self.processed_ticket_ids.clear()
+        
+        self._init_output_files()
+        self._load_processed_state()
+
 
         for raw_item in raw_records:
             try:
@@ -180,7 +195,12 @@ class BreakdownPipeline:
     def _init_output_files(self):
         for filename in ("work_orders.jsonl", "comms_pending.jsonl", "comms_sent.jsonl", "quarantine.jsonl"):
             filepath = os.path.join(self.output_dir, filename)
-            with open(filepath, "w", encoding="utf-8") as f:
+            if not os.path.exists(filepath):
+                with open(filepath, "a", encoding="utf-8") as f:
+                    pass
+        audit_file = os.path.join(self.audit_dir, "audit.jsonl")
+        if not os.path.exists(audit_file):
+            with open(audit_file, "a", encoding="utf-8") as f:
                 pass
         audit_file = os.path.join(self.audit_dir, "audit.jsonl")
         with open(audit_file, "w", encoding="utf-8") as f:
