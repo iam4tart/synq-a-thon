@@ -25,11 +25,13 @@ try:
     from src.human_gate import HumanApprovalGate
     from src.query_interface import GroundedQueryInterface
     from src.context_store import ContextStore
+    from src.llm_resolver import LLMResolver
 except ImportError:
     from solutions.src.pipeline import BreakdownPipeline
     from solutions.src.human_gate import HumanApprovalGate
     from solutions.src.query_interface import GroundedQueryInterface
     from solutions.src.context_store import ContextStore
+    from solutions.src.llm_resolver import LLMResolver
 
 app = FastAPI(title="Meridian Freight - Operations Dashboard")
 
@@ -37,10 +39,11 @@ BASE_DIR = current_dir if (os.path.exists(os.path.join(current_dir, "tickets.jso
 OUTPUT_DIR = os.path.join(current_dir, "outputs")
 AUDIT_DIR = os.path.join(current_dir, "audit")
 
+llm = LLMResolver()  # Reads LLM_PROVIDER + API key from env; gracefully disabled if no key
 pipeline = BreakdownPipeline(base_dir=BASE_DIR, output_dir=OUTPUT_DIR, audit_dir=AUDIT_DIR)
 gate = HumanApprovalGate(output_dir=OUTPUT_DIR)
 store = ContextStore(base_dir=BASE_DIR)
-query_engine = GroundedQueryInterface(store)
+query_engine = GroundedQueryInterface(store, llm=llm)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("meridian-ops")

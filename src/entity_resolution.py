@@ -39,18 +39,25 @@ class EntityResolver:
         return None
 
     @staticmethod
-    def canonicalize_client(client_str: Optional[str]) -> str:
+    def canonicalize_client(client_str: Optional[str], llm=None) -> str:
         if not client_str or not isinstance(client_str, str):
             return "Standard Client"
         cleaned = client_str.strip()
+        # 1. Deterministic: fuzzy difflib match
         matches = difflib.get_close_matches(cleaned, CANONICAL_CLIENTS, n=1, cutoff=0.35)
         if matches:
             return matches[0]
+        # 2. Deterministic: token overlap match
         cleaned_lower = cleaned.lower()
         for canonical in CANONICAL_CLIENTS:
             canonical_tokens = canonical.lower().split()
             if any(token in cleaned_lower for token in canonical_tokens):
                 return canonical
+        # 3. LLM fallback: for truly ambiguous inputs (e.g. "SCL Plant 4 Rajasthan")
+        if llm is not None:
+            resolved = llm.resolve_client(cleaned, CANONICAL_CLIENTS)
+            if resolved:
+                return resolved
         return cleaned
 
     @staticmethod
