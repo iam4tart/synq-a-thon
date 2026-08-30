@@ -194,22 +194,42 @@ class LLMResolver:
         )
         return self.resolve_json(prompt)
 
-    def answer_grounded_query(self, question: str, corpus_text: str) -> Dict[str, Any]:
+    def answer_grounded_query(self, question: str, corpus_text: str, citation_map: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Answers an operational question strictly grounded in corpus.
+        Returns plain English answer + traceable citations mapped to source files.
         If not found, returns INSUFFICIENT DATA — never guesses.
         """
+        available_rules = list(citation_map.keys()) if citation_map else []
         prompt = (
             f"Question: {question}\n\n"
-            f"Answer strictly from this corpus only. "
-            f"If not found, respond: INSUFFICIENT DATA"
+            f"Answer in plain English prose. Do NOT use JSON format in the answer text.\n"
+            f"Available rule IDs in the corpus: {available_rules}\n\n"
+            f"Respond ONLY with this JSON structure:\n"
+            f'{{"answer": "<plain English answer>", "rule_ids": ["RULE_X", "RULE_Y"]}}\n'
+            f"rule_ids should list only the rule IDs you actually used from the corpus.\n"
+            f"If the answer is not in the corpus, use: "
+            f'{{"answer": "INSUFFICIENT DATA", "rule_ids": []}}'
         )
-        raw = self.resolve(prompt, context=f"CORPUS:\n{corpus_text[:4000]}")
+        raw = self.resolve_json(prompt, context=f"CORPUS:\n{corpus_text[:4000]}")
         if not raw:
             return {"answer": "INSUFFICIENT DATA", "citations": [], "confidence": "INSUFFICIENT_DATA"}
-        is_insufficient = "INSUFFICIENT DATA" in raw.upper()
+
+        answer_text = raw.get("answer", "INSUFFICIENT DATA").strip()
+        rule_ids_used = raw.get("rule_ids", [])
+
+        # Map rule IDs back to actual file citations
+        citations = []
+        if citation_map:
+            for rule_id in rule_ids_used:
+                if rule_id in citation_map:
+                    citations.append(citation_map[rule_id])
+        if not citations and rule_ids_used:
+            citations = rule_ids_used  # fallback: show rule IDs at minimum
+
+        is_insufficient = "INSUFFICIENT DATA" in answer_text.upper()
         return {
-            "answer": raw,
-            "citations": ["LLM-grounded from loaded corpus"],
+            "answer": answer_text,
+            "citations": citations,
             "confidence": "INSUFFICIENT_DATA" if is_insufficient else "LLM_GROUNDED"
         }

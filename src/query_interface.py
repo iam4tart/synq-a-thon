@@ -83,7 +83,11 @@ class GroundedQueryInterface:
         # LLM path: question not matched deterministically, ask LLM grounded on corpus
         if self.llm is not None:
             corpus = self._corpus_snapshot()
-            result = self.llm.answer_grounded_query(question, corpus)
+            result = self.llm.answer_grounded_query(
+                question,
+                corpus,
+                citation_map=self.store.interview_citations
+            )
             return result
 
         # Safe degradation

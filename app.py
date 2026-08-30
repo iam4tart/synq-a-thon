@@ -445,15 +445,44 @@ def get_dashboard():
         }
         async function executeTopQuery() {
             const q = document.getElementById('topSearch').value; if(!q) return;
-            const res = await fetch('/api/query', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:q}) });
-            const data = await res.json();
-            
+
+            // Show loading state
             document.getElementById('dashboardContent').classList.add('d-none');
             document.getElementById('queryResults').classList.remove('d-none');
-            
             document.getElementById('inlineQuestion').innerText = q;
-            document.getElementById('inlineAnswer').innerText = data.answer;
-            document.getElementById('inlineCitations').innerHTML = data.citations.map(c=>`<li>${c}</li>`).join('');
+            document.getElementById('inlineAnswer').innerText = 'Searching knowledge base...';
+            document.getElementById('inlineCitations').innerHTML = '';
+
+            const res = await fetch('/api/query', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({query:q}) });
+            const data = await res.json();
+
+            // Sanitize answer: if LLM leaked JSON, try to extract the "answer" field
+            let answer = data.answer || 'INSUFFICIENT DATA';
+            try {
+                const parsed = JSON.parse(answer);
+                if (parsed && parsed.answer) answer = parsed.answer;
+            } catch(e) {}
+
+            // Confidence badge
+            const conf = data.confidence || 'UNKNOWN';
+            const badgeColor = conf === 'HIGH' ? '#10b981' : conf === 'LLM_GROUNDED' ? '#3b82f6' : '#888';
+            const badgeLabel = conf === 'HIGH' ? 'Rule-Grounded' : conf === 'LLM_GROUNDED' ? 'LLM-Grounded' : 'Insufficient Data';
+
+            document.getElementById('inlineQuestion').innerText = q;
+            document.getElementById('inlineAnswer').innerHTML =
+                `<span style="display:inline-block;font-size:10px;font-weight:600;color:#fff;background:${badgeColor};padding:2px 7px;border-radius:3px;margin-bottom:10px;letter-spacing:0.3px;">${badgeLabel}</span><br>${answer}`;
+
+            // Citations: render as labelled source references
+            if (data.citations && data.citations.length > 0) {
+                document.getElementById('inlineCitations').innerHTML = data.citations.map(c => {
+                    const parts = c.split(':');
+                    const file = parts[0] || c;
+                    const ref = parts.slice(1).join(':') || '';
+                    return `<li><code style="font-size:11px;background:#f4f4f5;padding:1px 5px;border-radius:3px;">${file}</code>${ref ? ' <span class="text-muted">'+ref+'</span>' : ''}</li>`;
+                }).join('');
+            } else {
+                document.getElementById('inlineCitations').innerHTML = '<li class="text-muted" style="font-size:12px;">No traceable source found in corpus.</li>';
+            }
         }
         
         function clearQuery() {
