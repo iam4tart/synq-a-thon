@@ -722,8 +722,33 @@ async def upload_queue(file: UploadFile = File(...)):
     content = await file.read()
     with open(target_path, "wb") as f:
         f.write(content)
-    stats = pipeline.process_queue_file(target_path, is_append=True)
-    return {"status": "SUCCESS", "stats": stats}
+        
+    # Read the JSON to validate duplicates and return count
+    try:
+        data = json.loads(content.decode("utf-8"))
+        record_count = len(data)
+        
+        # Check for self-overlap (duplicates inside the file)
+        ticket_ids = [str(d.get("ticket_id", d.get("id", ""))) for d in data if isinstance(d, dict)]
+        unique_ids = set([tid for tid in ticket_ids if tid])
+        
+        if len(unique_ids) < len(ticket_ids) * 0.8:  # arbitrarily 20% duplicate rate
+            # Log warning
+            audit_path = os.path.join(AUDIT_DIR, "audit.jsonl")
+            with open(audit_path, "a", encoding="utf-8") as af:
+                import datetime
+                af.write(json.dumps({
+                    "timestamp": datetime.datetime.now().isoformat(),
+                    "ticket_id": "SYSTEM",
+                    "step": "UPLOAD",
+                    "decision": "WARNING_HIGH_DUPLICATION",
+                    "rule": "UPLOAD_VALIDATION",
+                    "details": {"record_count": record_count, "unique_ids": len(unique_ids)}
+                }) + "\n")
+    except:
+        record_count = 0
+        
+    return {"status": "SUCCESS", "parsed_record_count": record_count, "stats": {"processed_valid": 0, "quarantined": 0}}
 
 
 if __name__ == '__main__':

@@ -61,7 +61,7 @@ class BreakdownPipeline:
                 ticket_id = normalized["ticket_id"]
                 if ticket_id in self.processed_ticket_ids:
                     stats["duplicates_skipped"] += 1
-                    self._log_audit(ticket_id, "VALIDATION", "Duplicate ticket skipped", "RULE_DEDUPLICATION", {"raw": raw_item})
+                    self._log_audit(ticket_id, "VALIDATION", "SKIPPED_ALREADY_PROCESSED", "RULE_DEDUPLICATION", {"raw": raw_item})
                     continue
 
                 self.processed_ticket_ids.add(ticket_id)

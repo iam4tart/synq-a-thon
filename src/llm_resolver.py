@@ -17,6 +17,7 @@ Configure via .env or environment variables:
 import os
 import json
 import logging
+from .pii_sanitizer import PIISanitizer
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger("meridian-llm")
@@ -81,6 +82,9 @@ class LLMResolver:
         if not self.enabled:
             return None
         full_prompt = f"{context}\n\n{prompt}".strip() if context else prompt
+        
+        # [BUG 4 FIX] PII guard before outbound LLM calls
+        full_prompt = PIISanitizer.sanitize_text(full_prompt)
         try:
             if self.provider == "groq":
                 return self._call_groq(full_prompt)

@@ -79,7 +79,7 @@ class RulesEngine:
             is_hill=is_hill,
             is_pharma=is_pharma,
             broken_plate=broken_plate,
-            incident_date=incident_date,
+            incident_dt=incident_dt,
             res=res
         )
 
@@ -93,7 +93,7 @@ class RulesEngine:
         is_hill: bool,
         is_pharma: bool,
         broken_plate: Optional[str],
-        incident_date: date,
+        incident_dt: datetime,
         res: DecisionResult
     ) -> Optional[str]:
         for plate, v in self.store.vehicles.items():
@@ -106,13 +106,19 @@ class RulesEngine:
             if is_hill:
                 if not v.get("engine_heater"):
                     continue
-                brake_days = self.store.get_recent_brake_work_days(plate, incident_date)
+                brake_days = self.store.get_recent_brake_work_days(plate, incident_dt.date())
                 if brake_days is not None and brake_days <= 30:
                     continue
             if is_pharma and v.get("year", 2018) < 2020:
                 continue
-            if self.store.get_guddu_jugaad_active(plate, incident_date):
+            if self.store.get_guddu_jugaad_active(plate, incident_dt.date()):
                 continue
+            if self.store.is_vehicle_currently_assigned(plate, incident_dt):
+                continue
+            
+            # Note on RULE_GROUNDED_OVERDUE_SERVICE: Intentionally deferred.
+            # Fleet master and maintenance logs currently lack a 'next_service_date' or 'due' field
+            # to deterministically compute >30 days overdue. Cannot enforce without hallucinating data.
 
             if is_winter_ncr:
                 res.rules_applied.append("RULE_NCR_BS4_WINTER")
@@ -131,12 +137,18 @@ class RulesEngine:
                 continue
             if is_winter_ncr and v.get("bs_stage") != "BS6":
                 continue
-            if is_hill and (not v.get("engine_heater") or (self.store.get_recent_brake_work_days(plate, incident_date) or 999) <= 30):
+            if is_hill and (not v.get("engine_heater") or (self.store.get_recent_brake_work_days(plate, incident_dt.date()) or 999) <= 30):
                 continue
             if is_pharma and v.get("year", 2018) < 2020:
                 continue
-            if self.store.get_guddu_jugaad_active(plate, incident_date):
+            if self.store.get_guddu_jugaad_active(plate, incident_dt.date()):
                 continue
+            if self.store.is_vehicle_currently_assigned(plate, incident_dt):
+                continue
+            
+            # Note on RULE_GROUNDED_OVERDUE_SERVICE: Intentionally deferred.
+            # Fleet master and maintenance logs currently lack a 'next_service_date' or 'due' field
+            # to deterministically compute >30 days overdue. Cannot enforce without hallucinating data.
             return plate
 
         return None
