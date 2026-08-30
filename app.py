@@ -366,26 +366,24 @@ def get_dashboard():
                 document.getElementById('btn-approve-all').style.display='none';
             }else{
                 document.getElementById('btn-approve-all').style.display='block';
-                tbP.innerHTML = d.pending.map(m=><tr>
-                    <td class="fw-medium"></td>
-                    <td><span class="badge-custom bg-gray"></span></td>
-                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>
-</td>
-                    <td class="text-end"><button class="btn btn-primary btn-custom py-1 px-2" onclick="approveSingle('')">Approve Mail</button></td>
-                </tr>).join('');
+                tbP.innerHTML = d.pending.map(m=>`<tr>
+                    <td class="fw-medium">${m.ticket_id}</td>
+                    <td><span class="badge-custom bg-gray">${m.client || m.recipient}</span></td>
+                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>\n${m.body}</td>
+                    <td class="text-end"><button class="btn btn-primary btn-custom py-1 px-2" onclick="approveSingle('${m.ticket_id}')">Approve Mail</button></td>
+                </tr>`).join('');
             }
             
             const tbS = document.getElementById('tbody-sent');
             if(d.sent.length===0){
                 tbS.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No sent emails</td></tr>';
             }else{
-                tbS.innerHTML = d.sent.map(m=><tr>
-                    <td class="fw-medium"></td>
-                    <td><span class="badge-custom bg-gray"></span></td>
-                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>
-</td>
-                    <td class="text-end"><button class="btn btn-light btn-custom border text-danger py-1 px-2" onclick="unapproveSingle('')">Undo</button></td>
-                </tr>).join('');
+                tbS.innerHTML = d.sent.map(m=>`<tr>
+                    <td class="fw-medium">${m.ticket_id}</td>
+                    <td><span class="badge-custom bg-gray">${m.recipient}</span></td>
+                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>\n${m.body}</td>
+                    <td class="text-end"><button class="btn btn-light btn-custom border text-danger py-1 px-2" onclick="unapproveSingle('${m.ticket_id}')">Undo</button></td>
+                </tr>`).join('');
             }
             document.getElementById('tbody-orders').innerHTML = d.work_orders.map(w=>`<tr>
                 <td class="fw-medium">${w.work_order_id}</td><td>${w.ticket_id}</td>
