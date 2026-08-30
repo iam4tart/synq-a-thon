@@ -200,6 +200,7 @@ def get_dashboard():
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <ul class="nav nav-pills" id="tabs" role="tablist">
                             <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-pending">Approvals</a></li>
+                            <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-sent">Sent Mails</a></li>
                             <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-orders">Work Orders</a></li>
                             <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-quarantine">Alerts</a></li>
                             <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-audit">Audit</a></li>
@@ -220,6 +221,19 @@ def get_dashboard():
                                         <th class="text-end"></th>
                                     </tr></thead>
                                     <tbody id="tbody-pending"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="tab-sent">
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead><tr>
+                                        <th>ID</th>
+                                        <th>Recipient</th>
+                                        <th>Sent Email Body (Drafted by AI)</th>
+                                        <th class="text-end">Action</th>
+                                    </tr></thead>
+                                    <tbody id="tbody-sent"></tbody>
                                 </table>
                             </div>
                         </div>
@@ -348,20 +362,31 @@ def get_dashboard():
             
             const tbP = document.getElementById('tbody-pending');
             if(d.pending.length===0){
-                tbP.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No pending approvals</td></tr>';
+                tbP.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No pending approvals</td></tr>';
                 document.getElementById('btn-approve-all').style.display='none';
             }else{
                 document.getElementById('btn-approve-all').style.display='block';
-                tbP.innerHTML = d.pending.map(m=>`<tr>
-                    <td class="fw-medium">${m.ticket_id}</td>
-                    <td><span class="badge-custom bg-gray">${m.client}</span></td>
-                    <td>${m.context_summary.origin_hub} → ${m.context_summary.destination}</td>
-                    <td class="text-success fw-medium">${m.context_summary.replacement_vehicle}</td>
-                    <td>${m.context_summary.sla_hours}h</td>
-                    <td class="text-end"><button class="btn btn-light btn-custom border text-success py-1 px-2" onclick="approveSingle('${m.ticket_id}')">Approve</button></td>
-                </tr>`).join('');
+                tbP.innerHTML = d.pending.map(m=><tr>
+                    <td class="fw-medium"></td>
+                    <td><span class="badge-custom bg-gray"></span></td>
+                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>
+</td>
+                    <td class="text-end"><button class="btn btn-primary btn-custom py-1 px-2" onclick="approveSingle('')">Approve Mail</button></td>
+                </tr>).join('');
             }
             
+            const tbS = document.getElementById('tbody-sent');
+            if(d.sent.length===0){
+                tbS.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No sent emails</td></tr>';
+            }else{
+                tbS.innerHTML = d.sent.map(m=><tr>
+                    <td class="fw-medium"></td>
+                    <td><span class="badge-custom bg-gray"></span></td>
+                    <td style="white-space: pre-wrap; font-size: 11px; color: #444; max-width: 400px;"><strong>Subject: Delay Notification</strong>
+</td>
+                    <td class="text-end"><button class="btn btn-light btn-custom border text-danger py-1 px-2" onclick="unapproveSingle('')">Undo</button></td>
+                </tr>).join('');
+            }
             document.getElementById('tbody-orders').innerHTML = d.work_orders.map(w=>`<tr>
                 <td class="fw-medium">${w.work_order_id}</td><td>${w.ticket_id}</td>
                 <td class="fw-medium">${w.vehicle_reg}</td><td>${w.created_at.split('T')[1].split('.')[0]}</td>
@@ -428,7 +453,15 @@ def get_dashboard():
             fetchDashboard(); 
         }
         async function approveSingle(id) { 
-            const res = await fetch('/api/approve-comms?ticket_id='+id, {method:'POST'}); 
+            await fetch('/api/approve-comms?ticket_id='+id, {method:'POST'}); 
+            showToast(Approved email for ticket .);
+            fetchDashboard(); 
+        }
+        async function unapproveSingle(id) { 
+            await fetch('/api/unapprove-comms?ticket_id='+id, {method:'POST'}); 
+            showToast(Undo: Recalled email for ticket .);
+            fetchDashboard(); 
+        }); 
             const data = await res.json();
             showToast(`Approved operation for ticket ${id}.`);
             fetchDashboard(); 
@@ -552,6 +585,14 @@ def approve_comms(ticket_id: Optional[str] = None):
     approved = gate.approve(approver_name="Ops_Manager", ticket_id=ticket_id)
     return {"status": "SUCCESS", "approved_count": approved}
 
+
+@app.post("/api/query")
+@graceful_api("Knowledge Query")
+@app.post("/api/unapprove-comms")
+@graceful_api("Unapprove Comms")
+def unapprove_comms(ticket_id: str):
+    success = gate.unapprove(ticket_id=ticket_id)
+    return {"status": "SUCCESS", "unapproved": success}
 
 @app.post("/api/query")
 @graceful_api("Knowledge Query")

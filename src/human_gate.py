@@ -88,3 +88,47 @@ class HumanApprovalGate:
                 f_pending.write(json.dumps(msg) + "\n")
 
         return approved_count
+
+    def unapprove(self, ticket_id: str) -> bool:
+        """Moves a sent message back to pending."""
+        if not os.path.exists(self.sent_path):
+            return False
+            
+        sent_msgs = []
+        target_msg = None
+        
+        # Read sent messages
+        with open(self.sent_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    rec = json.loads(line.strip())
+                    if rec.get("ticket_id") == ticket_id:
+                        target_msg = rec
+                    else:
+                        sent_msgs.append(rec)
+                        
+        if not target_msg:
+            return False
+            
+        # Write back sent queue without the target
+        with open(self.sent_path, "w", encoding="utf-8") as f:
+            for msg in sent_msgs:
+                f.write(json.dumps(msg) + "\n")
+                
+        # Reconstruct a pending version and append to pending
+        pending_reconstruct = {
+            "ticket_id": target_msg["ticket_id"],
+            "client": target_msg["recipient"],
+            "recipient": target_msg["recipient"],
+            "body": target_msg["body"],
+            "context_summary": {
+                "origin_hub": "Recovered",
+                "destination": "Recovered",
+                "replacement_vehicle": "Recovered",
+                "sla_hours": 0
+            }
+        }
+        with open(self.pending_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(pending_reconstruct) + "\n")
+            
+        return True

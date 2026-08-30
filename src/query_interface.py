@@ -34,44 +34,7 @@ class GroundedQueryInterface:
     def query(self, question: str) -> Dict[str, Any]:
         q_lower = question.lower()
 
-        # Fast path: deterministic keyword matching for known high-confidence rules
-        if "shakti" in q_lower and any(w in q_lower for w in ["sla", "hours", "delivery"]):
-            return {
-                "answer": "Shakti Cement's operational delivery window is strictly 36 hours door-to-door, overriding the legacy 48-hour paper contract.",
-                "citations": ["dispatcher_interview.txt:L37-L45", "emails/thread_01_shakti_sla.txt:L5-L12"],
-                "confidence": "HIGH"
-            }
-        if any(w in q_lower for w in ["delhi", "ncr", "bs4", "bs6"]):
-            return {
-                "answer": "Between October and February, no BS4 vehicle is permitted on any route touching Delhi NCR. Only BS6 vehicles are permitted.",
-                "citations": ["dispatcher_interview.txt:L15-L25"],
-                "confidence": "HIGH"
-            }
-        if any(w in q_lower for w in ["hill", "rudrapur", "nainital", "brake"]):
-            return {
-                "answer": "Hill routes require engine heaters and zero brake repairs in the preceding 30 days.",
-                "citations": ["dispatcher_interview.txt:L27-L35"],
-                "confidence": "HIGH"
-            }
-        if any(w in q_lower for w in ["guddu", "jugaad"]):
-            return {
-                "answer": "Temporary repairs by mechanic Guddu have a strict 7-day clock. Vehicle is restricted from leaving its home region.",
-                "citations": ["dispatcher_interview.txt:L97-L105"],
-                "confidence": "HIGH"
-            }
-        if "vertex" in q_lower:
-            return {
-                "answer": "Vertex Retail's Ludhiana gate closes at 18:00. Deliveries arriving after 18:00 are held and scheduled for 08:00 AM next morning.",
-                "citations": ["dispatcher_interview.txt:L47-L55"],
-                "confidence": "HIGH"
-            }
-        if any(w in q_lower for w in ["orion", "pharma"]):
-            return {
-                "answer": "Orion Pharma requires refrigerated handling and vehicles of model year 2020 or newer.",
-                "citations": ["dispatcher_interview.txt:L65-L70"],
-                "confidence": "HIGH"
-            }
-        # Vehicle lookup
+        # Fast path: Vehicle lookup
         for plate, v in self.store.vehicles.items():
             if plate.lower() in q_lower or v.get("raw_plate", "").lower() in q_lower:
                 return {
